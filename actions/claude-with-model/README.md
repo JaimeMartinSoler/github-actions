@@ -10,6 +10,7 @@ A reusable composite action to interact with Claude Code via issues and PR comme
 | `anthropic_api_key`       | Anthropic API key for Claude Code                            | No       | N/A     |
 | `claude_model`            | Explicitly requested Claude model (full name or alias)       | No       | N/A     |
 | `verify_author_write`     | If true, verifies the author has write access.               | No       | true    |
+| `skip_if_bot`             | If true, skips execution gracefully when triggered by a bot. | No       | true    |
 | `base_branch`             | Base branch for checkout and PRs                             | No       | develop |
 
 ## Usage Example
@@ -52,5 +53,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # (provide either this or anthropic_api_key)
           # claude_model: 'opus' # (default: empty, get from event body text like 'claude model opus/sonnet/haiku')
           verify_author_write: 'true' # (default: 'true')
+          skip_if_bot: 'true' # (default: 'true')
           base_branch: 'develop' # (default: 'develop')
 ```

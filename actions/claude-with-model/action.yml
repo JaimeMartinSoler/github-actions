@@ -19,6 +19,10 @@ inputs:
     description: 'Base branch for checkout and PRs'
     required: false
     default: 'develop'
+  skip_if_bot:
+    description: 'If true, skips execution gracefully when triggered by a bot'
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -31,6 +35,7 @@ runs:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         claude_model: ${{ inputs.claude_model }}
         verify_author_write: ${{ inputs.verify_author_write }}
+        skip_if_bot: ${{ inputs.skip_if_bot }}
 
     - name: Checkout repository
       if: steps.resolve.outputs.authorized == 'true'
@@ -58,5 +63,6 @@ runs:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         claude_args: ${{ steps.args.outputs.value }}
         base_branch: ${{ inputs.base_branch }}
+        allowed_bots: ${{ inputs.skip_if_bot == 'false' && '*' || '' }}
         additional_permissions: |
           actions: read

@@ -15,6 +15,10 @@ inputs:
     description: 'If true, verifies the author has write access. If false, skips check.'
     required: false
     default: 'true'
+  skip_if_bot:
+    description: 'If true, skips execution gracefully when triggered by a bot'
+    required: false
+    default: 'true'
 
 outputs:
   authorized:
@@ -33,6 +37,15 @@ runs:
       with:
         script: |
           const verify = '${{ inputs.verify_author_write }}' === 'true';
+          const skipIfBot = '${{ inputs.skip_if_bot }}' === 'true';
+          const isBot = context.actor.endsWith('[bot]') || context.payload.sender?.type === 'Bot' || context.actor === 'claude';
+          
+          if (isBot && skipIfBot) {
+            core.info(`Actor ${context.actor} is a bot. skip_if_bot is true. Gracefully skipping.`);
+            core.setOutput('authorized', 'false');
+            return;
+          }
+
           let authorized = false;
           if (!verify) {
             authorized = true;

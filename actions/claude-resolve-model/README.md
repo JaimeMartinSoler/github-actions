@@ -10,6 +10,7 @@ A reusable composite action to check if the user is authorized and resolve which
 | `anthropic_api_key`       | Anthropic API key for Claude Code                            | No       | N/A     |
 | `claude_model`            | Explicitly requested Claude model (full name or alias)       | No       | N/A     |
 | `verify_author_write`     | If true, verifies the author has write access.               | No       | true    |
+| `skip_if_bot`             | If true, skips execution gracefully when triggered by a bot. | No       | true    |
 
 ## Outputs
 
@@ -31,6 +32,7 @@ A reusable composite action to check if the user is authorized and resolve which
         claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # (provide eitherthis or anthropic_api_key)
         # claude_model: 'opus' # (default: empty, get from event body text like 'claudemodel opus/sonnet/haiku')
         verify_author_write: 'true' # (default: 'true')
+        skip_if_bot: 'true' # (default: 'true')
 
     - name: Run logic
       if: steps.resolve.outputs.authorized == 'true'
