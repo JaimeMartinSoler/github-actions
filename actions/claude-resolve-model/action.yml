@@ -1,0 +1,162 @@
+name: 'Claude Resolve Model'
+description: 'Checks authorization and resolves the Claude model to use from comments or inputs'
+
+inputs:
+  claude_code_oauth_token:
+    description: 'OAuth token for Claude Code'
+    required: false
+  anthropic_api_key:
+    description: 'Anthropic API key for Claude Code'
+    required: false
+  claude_model:
+    description: 'Claude model to use (full name or alias like haiku, sonnet, opus)'
+    required: false
+  verify_author_write:
+    description: 'If true, verifies the author has write access. If false, skips check.'
+    required: false
+    default: 'true'
+
+outputs:
+  authorized:
+    description: 'Whether the user is authorized to run Claude Code'
+    value: ${{ steps.gate.outputs.authorized }}
+  model:
+    description: 'The resolved Claude model to use'
+    value: ${{ steps.resolve_model.outputs.model }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Verify author has write access
+      id: gate
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const verify = '${{ inputs.verify_author_write }}' === 'true';
+          let authorized = false;
+          if (!verify) {
+            authorized = true;
+          } else {
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.actor,
+              });
+              // The permission field collapses maintain->write and triage->read.
+              authorized = data.permission === 'admin' || data.permission === 'write';
+            } catch (e) {
+              // e.g. 404 when the actor is not a collaborator at all.
+              authorized = false;
+            }
+            if (!authorized) {
+              const msg = `@${context.actor} does not have write access to this repository, so Claude will not run for this request.`;
+              core.warning(msg);
+              if (context.issue && context.issue.number) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: msg,
+                });
+              }
+            }
+          }
+          core.setOutput('authorized', authorized ? 'true' : 'false');
+
+    - name: Fetch available Claude models
+      id: claude_models
+      if: steps.gate.outputs.authorized == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+      run: |
+        set +e
+        if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+          HEADER="Authorization: Bearer ${CLAUDE_CODE_OAUTH_TOKEN}"
+        elif [ -n "$ANTHROPIC_API_KEY" ]; then
+          HEADER="x-api-key: ${ANTHROPIC_API_KEY}"
+        else
+          echo "No token provided"
+          echo "CLAUDE_MODELS=[]"
+          {
+            echo "models<<EOF_MODELS"
+            echo "[]"
+            echo "EOF_MODELS"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        RESPONSE=$(curl -sS -m 15 "https://api.anthropic.com/v1/models?limit=1000" \
+          -H "$HEADER" \
+          -H "anthropic-version: 2023-06-01")
+        MODELS_JSON=$(printf '%s' "$RESPONSE" | jq -c '[.data[].id]' 2>/dev/null)
+        if [ -z "$MODELS_JSON" ] || [ "$MODELS_JSON" = "null" ]; then
+          MODELS_JSON="[]"
+        fi
+        echo "CLAUDE_MODELS=$MODELS_JSON"
+        {
+          echo "models<<EOF_MODELS"
+          echo "$MODELS_JSON"
+          echo "EOF_MODELS"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Determine requested model from trigger text
+      id: requested_model
+      if: steps.gate.outputs.authorized == 'true'
+      shell: bash
+      env:
+        EXPLICIT_MODEL: ${{ inputs.claude_model }}
+        ISSUE_BODY: ${{ github.event.issue.body }}
+        ISSUE_TITLE: ${{ github.event.issue.title }}
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        REVIEW_BODY: ${{ github.event.review.body }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        if [ -n "$EXPLICIT_MODEL" ]; then
+          CLAUDE_MODEL_RAW="$EXPLICIT_MODEL"
+        else
+          case "$EVENT_NAME" in
+            issue_comment|pull_request_review_comment)
+              TRIGGER_TEXT="$COMMENT_BODY" ;;
+            pull_request_review)
+              TRIGGER_TEXT="$REVIEW_BODY" ;;
+            issues)
+              TRIGGER_TEXT="$ISSUE_TITLE"$'\n'"$ISSUE_BODY" ;;
+            *)
+              TRIGGER_TEXT="" ;;
+          esac
+
+          CLAUDE_MODEL_RAW=$(printf '%s' "$TRIGGER_TEXT" | grep -ioP 'claude.?model\s*[=:]?\s*\K[\w-]*' | head -n1)
+        fi
+
+        echo "CLAUDE_MODEL_RAW=$CLAUDE_MODEL_RAW"
+        echo "raw=$CLAUDE_MODEL_RAW" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve CLAUDE_MODEL
+      id: resolve_model
+      if: steps.gate.outputs.authorized == 'true' && steps.requested_model.outputs.raw != ''
+      shell: bash
+      env:
+        CLAUDE_MODEL_RAW: ${{ steps.requested_model.outputs.raw }}
+        CLAUDE_MODELS_JSON: ${{ steps.claude_models.outputs.models }}
+      run: |
+        MODELS_JSON="${CLAUDE_MODELS_JSON:-[]}"
+        CLAUDE_MODEL=$(printf '%s' "$MODELS_JSON" | jq -r --arg raw "$CLAUDE_MODEL_RAW" '
+          [.[] | select(ascii_downcase | contains($raw | ascii_downcase))]
+          | sort
+          | last // ""
+        ')
+
+        # No match in the live list (API call failed, or nothing contains the
+        # substring) - fall back to the raw text itself. Claude Code's CLI
+        # accepts short aliases ("opus", "sonnet", "haiku") as well as full
+        # model ids, so this still works in most cases.
+        if [ -z "$CLAUDE_MODEL" ] || [ "$CLAUDE_MODEL" = "null" ]; then
+          CLAUDE_MODEL="$CLAUDE_MODEL_RAW"
+        fi
+
+        echo "CLAUDE_MODEL=$CLAUDE_MODEL"
+        echo "model=$CLAUDE_MODEL" >> "$GITHUB_OUTPUT"

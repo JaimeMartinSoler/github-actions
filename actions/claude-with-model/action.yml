@@ -1,0 +1,62 @@
+name: 'Claude Code'
+description: 'Runs Claude code interactively from comments'
+
+inputs:
+  claude_code_oauth_token:
+    description: 'OAuth token for Claude Code'
+    required: false
+  anthropic_api_key:
+    description: 'Anthropic API key for Claude Code'
+    required: false
+  claude_model:
+    description: 'Claude model to use (full name or alias like haiku, sonnet, opus)'
+    required: false
+  verify_author_write:
+    description: 'If true, verifies the author has write access. If false, skips check.'
+    required: false
+    default: 'true'
+  base_branch:
+    description: 'Base branch for checkout and PRs'
+    required: false
+    default: 'develop'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolve Claude Model
+      id: resolve
+      uses: ./actions/claude-resolve-model
+      with:
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        claude_model: ${{ inputs.claude_model }}
+        verify_author_write: ${{ inputs.verify_author_write }}
+
+    - name: Checkout repository
+      if: steps.resolve.outputs.authorized == 'true'
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 1
+        ref: ${{ inputs.base_branch }}
+
+    - name: Build claude_args
+      id: args
+      if: steps.resolve.outputs.authorized == 'true'
+      shell: bash
+      run: |
+        ARGS=""
+        if [ -n "${{ steps.resolve.outputs.model }}" ]; then
+          ARGS="--model ${{ steps.resolve.outputs.model }}"
+        fi
+        echo "value=$ARGS" >> "$GITHUB_OUTPUT"
+
+    - name: Run Claude Code
+      if: steps.resolve.outputs.authorized == 'true'
+      uses: anthropics/claude-code-action@v1
+      with:
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        claude_args: ${{ steps.args.outputs.value }}
+        base_branch: ${{ inputs.base_branch }}
+        additional_permissions: |
+          actions: read
