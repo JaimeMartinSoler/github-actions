@@ -13,6 +13,8 @@ A reusable composite action to automatically run Claude Code Review on a pull re
 
 ## Usage Example
 
+This example is ready to copy-paste into your `claude-code-review.yml` workflow file.
+
 ```yaml
 name: Claude Code Review
 

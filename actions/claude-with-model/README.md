@@ -14,6 +14,8 @@ A reusable composite action to interact with Claude Code via issues and PR comme
 
 ## Usage Example
 
+This example is ready to copy-paste into your `claude.yml` workflow file.
+
 ```yaml
 name: Claude Code
 

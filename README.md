@@ -25,26 +25,9 @@ Internal building block used by the other actions. Handles author authorization 
 
 ## How to Use
 
-To use an action from this repository in another workflow, reference it using the repository name, path to the action, and a version tag or branch:
+To use an action from this repository in another workflow, reference it using the repository name, path to the action, and a version tag or branch.
 
-```yaml
-jobs:
-  claude:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
-    steps:
-      - name: Run Claude
-        uses: your-org/github-actions/actions/claude-with-model@main
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-```
-
-See each action's `README.md` for full input/output documentation and usage examples.
+See each action's `README.md` for full input/output documentation and usage examples ready to copy-paste.
 
 ## Contributing
 
