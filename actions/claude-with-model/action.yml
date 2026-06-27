@@ -25,7 +25,7 @@ runs:
   steps:
     - name: Resolve Claude Model
       id: resolve
-      uses: ./actions/claude-resolve-model
+      uses: JaimeMartinSoler/github-actions/actions/claude-resolve-model@main
       with:
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
