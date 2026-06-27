@@ -21,15 +21,18 @@ A reusable composite action to check if the user is authorized and resolve which
 ## Usage Example
 
 ```yaml
-steps:
-  - name: Resolve Model
-    id: resolve
-    uses: JaimeMartinSoler/github-actions/actions/claude-resolve-model@main
-    with:
-      claude_model: 'sonnet'
-      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+  steps:
+    - name: Resolve Claude Model
+      id: resolve
+      uses: JaimeMartinSoler/github-actions/actions/claude-resolve-model@main
+      with:
+        # --- IMPLEMENTER ACTION SHOULD ONLY MODIFY THESE PARAMETERS: ---
+        # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }} # (provide either this orclaude_code_oauth_token)
+        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # (provide eitherthis or anthropic_api_key)
+        # claude_model: 'opus' # (default: empty, get from event body text like 'claudemodel opus/sonnet/haiku')
+        verify_author_write: 'true' # (default: 'true')
 
-  - name: Run logic
-    if: steps.resolve.outputs.authorized == 'true'
-    run: echo "Resolved to ${{ steps.resolve.outputs.model }}"
+    - name: Run logic
+      if: steps.resolve.outputs.authorized == 'true'
+      run: echo "Resolved to ${{ steps.resolve.outputs.model }}"
 ```

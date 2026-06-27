@@ -13,11 +13,18 @@ A reusable composite action to automatically run Claude Code Review on a pull re
 
 ## Usage Example
 
+This example is ready to copy-paste into your `claude-code-review.yml` workflow file.
+
 ```yaml
 name: Claude Code Review
+
 on:
   pull_request:
     types: [opened, synchronize]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
 
 jobs:
   claude-review:
@@ -27,12 +34,14 @@ jobs:
       pull-requests: read
       issues: read
       id-token: write
+
     steps:
-      - name: Code Review
-        uses: your-org/github-actions/actions/claude-code-review-with-model@main
+      - name: claude-code-review-with-model
+        uses: JaimeMartinSoler/github-actions/actions/claude-code-review-with-model@main
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # claude_model: 'sonnet'
-          verify_author_write: 'true'
+          # --- IMPLEMENTER ACTION SHOULD ONLY MODIFY THESE PARAMETERS: ---
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }} # (provide either this or claude_code_oauth_token)
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # (provide either this or anthropic_api_key)
+          claude_model: 'opus' # (default: empty, get from event body text like 'claude model opus/sonnet/haiku', but review has no event body for this, so provide this parameter)
+          verify_author_write: 'true' # (default: 'true')
 ```

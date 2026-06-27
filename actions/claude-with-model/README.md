@@ -14,33 +14,43 @@ A reusable composite action to interact with Claude Code via issues and PR comme
 
 ## Usage Example
 
+This example is ready to copy-paste into your `claude.yml` workflow file.
+
 ```yaml
-name: Claude Interactive
+name: Claude Code
+
 on:
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   claude:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      pull-requests: write # Required to post the "no write access" comment
+      issues: write # Required to post the "no write access" comment
       id-token: write
-      actions: read
+      actions: read # Required for Claude to read CI results on PRs
     steps:
-      - name: Run Claude
+      - name: claude-with-model
         uses: JaimeMartinSoler/github-actions/actions/claude-with-model@main
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # claude_model: 'sonnet'
-          verify_author_write: 'true'
-          # base_branch: 'develop'
+          # --- IMPLEMENTER ACTION SHOULD ONLY MODIFY THESE PARAMETERS: ---
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }} # (provide either this or claude_code_oauth_token)
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # (provide either this or anthropic_api_key)
+          # claude_model: 'opus' # (default: empty, get from event body text like 'claude model opus/sonnet/haiku')
+          verify_author_write: 'true' # (default: 'true')
+          base_branch: 'develop' # (default: 'develop')
 ```
